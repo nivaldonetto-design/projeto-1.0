@@ -2,14 +2,246 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Meu Primeiro Jogo - Projeto 1.0</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Defesa Estelar - Edição Turbo</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; color: white; font-family: 'Courier New', Courier, monospace; }
+        canvas { border: 3px solid #444; background: #020205; box-shadow: 0 0 20px rgba(0, 173, 255, 0.3); }
+        #painel { position: absolute; top: 10px; text-align: center; pointer-events: none; }
+    </style>
 </head>
 <body>
-    <div class="game-container">
-        <canvas id="gameCanvas" width="800" height="400"></canvas>
-        <p>Use as setas do teclado para mover!</p>
+
+    <div id="painel">
+        <h2>Defesa Estelar Turbo</h2>
+        <p>Setas (← →) para mover | Espaço para Atirar</p>
     </div>
-    <script src="game.js"></script>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    // --- 1. CONFIGURAÇÃO INICIAL ---
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = 500;
+    canvas.height = 700;
+
+    // --- 2. VARIÁVEIS E OBJETOS DO JOGO ---
+    let jogoAtivo = true;
+    let frames = 0;
+    let pontuacao = 0;
+    let teclas = {};
+
+    let nave = { x: 230, y: 620, largura: 40, altura: 40, velocidade: 8, vidas: 3, timerPoder: 0 };
+    let tiros = [];
+    let inimigos = [];
+    let particulas = [];
+    let powerUps = [];
+    let estrelas = [];
+
+    // Criar estrelas do fundo espacial
+    for (let i = 0; i < 100; i++) {
+        estrelas.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, raio: Math.random() * 2, velocidade: Math.random() * 2 + 1 });
+    }
+
+    // --- 3. CONTROLES ---
+    window.addEventListener("keydown", (e) => teclas[e.code] = true);
+    window.addEventListener("keyup", (e) => teclas[e.code] = false);
+
+    // --- 4. FUNÇÕES DE CRIAÇÃO ---
+    function criarInimigo() {
+        if (frames % 50 === 0) { // Cria inimigos um pouco mais rápido
+            let tipo = Math.random() > 0.8 ? "rapido" : "comum"; // 20% de chance de ser rápido
+            inimigos.push({
+                x: Math.random() * (canvas.width - 30),
+                y: -30,
+                largura: tipo === "rapido" ? 20 : 35,
+                altura: tipo === "rapido" ? 20 : 35,
+                velocidade: tipo === "rapido" ? 5 : 2.5,
+                cor: tipo === "rapido" ? "#B200FF" : "#FF0044" // Roxo para rápido, Vermelho para comum
+            });
+        }
+    }
+
+    function criarExplosao(x, y, cor) {
+        for (let i = 0; i < 15; i++) {
+            particulas.push({
+                x: x + 15, y: y + 15,
+                vx: (Math.random() - 0.5) * 6, // Velocidade horizontal aleatória
+                vy: (Math.random() - 0.5) * 6, // Velocidade vertical aleatória
+                tamanho: Math.random() * 4 + 2,
+                cor: cor,
+                vida: 30 // Partícula some após 30 frames
+            });
+        }
+    }
+
+    // --- 5. LÓGICA DO JOGO (ATUALIZAÇÃO) ---
+    function atualizar() {
+        if (!jogoAtivo) return;
+
+        // Fundo (Estrelas)
+        estrelas.forEach(estrela => {
+            estrela.y += estrela.velocidade;
+            if (estrela.y > canvas.height) estrela.y = 0;
+        });
+
+        // Movimento da Nave
+        if (teclas["ArrowLeft"] && nave.x > 0) nave.x -= nave.velocidade;
+        if (teclas["ArrowRight"] && nave.x < canvas.width - nave.largura) nave.x += nave.velocidade;
+
+        // Controle do PowerUp de Tiro Triplo
+        if (nave.timerPoder > 0) nave.timerPoder--;
+
+        // Atirar
+        if (teclas["Space"] && frames % 12 === 0) {
+            if (nave.timerPoder > 0) {
+                // Tiro Triplo
+                tiros.push({ x: nave.x + 18, y: nave.y, vx: 0, vy: -12 });
+                tiros.push({ x: nave.x + 18, y: nave.y, vx: -3, vy: -10 }); // Diagonal esquerda
+                tiros.push({ x: nave.x + 18, y: nave.y, vx: 3, vy: -10 });  // Diagonal direita
+            } else {
+                // Tiro Normal
+                tiros.push({ x: nave.x + 18, y: nave.y, vx: 0, vy: -12 });
+            }
+        }
+
+        // Atualizar Tiros
+        tiros.forEach((tiro, index) => {
+            tiro.y += tiro.vy;
+            tiro.x += tiro.vx;
+            if (tiro.y < 0 || tiro.x < 0 || tiro.x > canvas.width) tiros.splice(index, 1);
+        });
+
+        // Atualizar Partículas (Explosões)
+        particulas.forEach((p, index) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vida--;
+            if (p.vida <= 0) particulas.splice(index, 1);
+        });
+
+        // Atualizar PowerUps
+        powerUps.forEach((pu, index) => {
+            pu.y += 2; // Powerup cai devagar
+            // Colisão com a nave
+            if (pu.y + 15 > nave.y && pu.y < nave.y + nave.altura &&
+                pu.x + 15 > nave.x && pu.x < nave.x + nave.largura) {
+                nave.timerPoder = 300; // 5 segundos de tiro triplo (60 frames * 5)
+                powerUps.splice(index, 1);
+            }
+            if (pu.y > canvas.height) powerUps.splice(index, 1);
+        });
+
+        // Atualizar Inimigos e Colisões
+        inimigos.forEach((inimigo, iIndex) => {
+            inimigo.y += inimigo.velocidade;
+
+            // Inimigo bateu no chão (Perde vida)
+            if (inimigo.y > canvas.height) {
+                inimigos.splice(iIndex, 1);
+                nave.vidas--;
+                if (nave.vidas <= 0) jogoAtivo = false; // Fim de Jogo
+            }
+
+            // Colisão do Inimigo com a Nave
+            if (inimigo.x < nave.x + nave.largura && inimigo.x + inimigo.largura > nave.x &&
+                inimigo.y < nave.y + nave.altura && inimigo.y + inimigo.altura > nave.y) {
+                criarExplosao(nave.x, nave.y, "#00ADFF");
+                inimigos.splice(iIndex, 1);
+                nave.vidas--;
+                if (nave.vidas <= 0) jogoAtivo = false;
+            }
+
+            // Colisão Tiro com Inimigo
+            tiros.forEach((tiro, tIndex) => {
+                if (tiro.x < inimigo.x + inimigo.largura && tiro.x + 4 > inimigo.x &&
+                    tiro.y < inimigo.y + inimigo.altura && tiro.y + 10 > inimigo.y) {
+                    
+                    criarExplosao(inimigo.x, inimigo.y, inimigo.cor); // Chama o efeito visual
+                    pontuacao += (inimigo.velocidade === 5) ? 20 : 10; // Inimigo rápido dá mais pontos
+                    
+                    // Chance de dropar PowerUp (10% de chance)
+                    if (Math.random() < 0.1) {
+                        powerUps.push({ x: inimigo.x, y: inimigo.y });
+                    }
+
+                    inimigos.splice(iIndex, 1);
+                    tiros.splice(tIndex, 1);
+                }
+            });
+        });
+    }
+
+    // --- 6. RENDERIZAÇÃO (DESENHO) ---
+    function desenhar() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpa tela
+
+        // Desenhar Estrelas
+        ctx.fillStyle = "white";
+        estrelas.forEach(e => {
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, e.raio, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // Se o jogo acabou, mostra a tela de Game Over
+        if (!jogoAtivo) {
+            ctx.fillStyle = "red";
+            ctx.font = "40px Courier New";
+            ctx.fillText("GAME OVER", canvas.width/2 - 110, canvas.height/2);
+            ctx.fillStyle = "white";
+            ctx.font = "20px Courier New";
+            ctx.fillText("Pressione F5 para reiniciar", canvas.width/2 - 160, canvas.height/2 + 40);
+            return; // Interrompe o desenho do resto
+        }
+
+        // Desenhar PowerUps (Quadrado Azul Ciano)
+        ctx.fillStyle = "#00FFFF";
+        powerUps.forEach(pu => ctx.fillRect(pu.x, pu.y, 15, 15));
+
+        // Desenhar Partículas
+        particulas.forEach(p => {
+            ctx.fillStyle = p.cor;
+            ctx.globalAlpha = p.vida / 30; // Vai ficando transparente
+            ctx.fillRect(p.x, p.y, p.tamanho, p.tamanho);
+        });
+        ctx.globalAlpha = 1.0; // Restaura opacidade
+
+        // Desenhar Nave
+        ctx.fillStyle = nave.timerPoder > 0 ? "#00FFFF" : "#00ADFF"; // Nave brilha se tiver poder
+        ctx.fillRect(nave.x, nave.y, nave.largura, nave.altura);
+        
+        // Detalhe da nave (Cockpit)
+        ctx.fillStyle = "white";
+        ctx.fillRect(nave.x + 15, nave.y + 5, 10, 15);
+
+        // Desenhar Tiros
+        ctx.fillStyle = "yellow";
+        tiros.forEach(t => ctx.fillRect(t.x, t.y, 4, 10));
+
+        // Desenhar Inimigos
+        inimigos.forEach(inimigo => {
+            ctx.fillStyle = inimigo.cor;
+            ctx.fillRect(inimigo.x, inimigo.y, inimigo.largura, inimigo.altura);
+        });
+
+        // Placar e Vidas
+        ctx.fillStyle = "white";
+        ctx.font = "20px Courier New";
+        ctx.fillText("Pontos: " + pontuacao, 20, 30);
+        ctx.fillStyle = "lime";
+        ctx.fillText("Vidas: " + "❤️".repeat(nave.vidas), 20, 60);
+    }
+
+    // --- 7. LOOP PRINCIPAL ---
+    function loop() {
+        atualizar();
+        desenhar();
+        criarInimigo();
+        frames++;
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+</script>
 </body>
 </html>
