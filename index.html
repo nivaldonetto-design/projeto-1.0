@@ -2,237 +2,233 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Defesa Estelar - Edição Turbo</title>
+    <title>Dino Defesa Turbo 🦖</title>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; color: white; font-family: 'Courier New', Courier, monospace; }
-        canvas { border: 3px solid #444; background: #020205; box-shadow: 0 0 20px rgba(0, 173, 255, 0.3); }
-        #painel { position: absolute; top: 10px; text-align: center; pointer-events: none; }
+        /* CSS para o estilo visual */
+        body { 
+            margin: 0; 
+            background: #000; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            color: white; 
+            font-family: 'Courier New', Courier, monospace; 
+        }
+        canvas { 
+            border: 3px solid #444; 
+            background: #020205; 
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.3); 
+        }
+        #painel { 
+            position: absolute; 
+            top: 10px; 
+            text-align: center; 
+            pointer-events: none; 
+        }
     </style>
 </head>
 <body>
 
     <div id="painel">
-        <h2>Defesa Estelar Turbo</h2>
+        <h2>Dino Defesa Turbo 🦖</h2>
         <p>Setas (← →) para mover | Espaço para Atirar</p>
     </div>
     <canvas id="gameCanvas"></canvas>
 
 <script>
-    // --- 1. CONFIGURAÇÃO INICIAL ---
+    // --- 1. CONFIGURAÇÃO DO CANVAS ---
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     canvas.width = 500;
     canvas.height = 700;
 
-    // --- 2. VARIÁVEIS E OBJETOS DO JOGO ---
+    // --- 2. VARIÁVEIS DO JOGO ---
     let jogoAtivo = true;
     let frames = 0;
     let pontuacao = 0;
     let teclas = {};
 
-    let nave = { x: 230, y: 620, largura: 40, altura: 40, velocidade: 8, vidas: 3, timerPoder: 0 };
+    // Objeto do Dino
+    let dino = { 
+        x: 230, y: 620, 
+        largura: 45, altura: 45, 
+        velocidade: 8, vidas: 3, 
+        timerPoder: 0 
+    };
+
     let tiros = [];
     let inimigos = [];
     let particulas = [];
     let powerUps = [];
     let estrelas = [];
 
-    // Criar estrelas do fundo espacial
-    for (let i = 0; i < 100; i++) {
-        estrelas.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, raio: Math.random() * 2, velocidade: Math.random() * 2 + 1 });
+    // Criar o fundo de estrelas
+    for (let i = 0; i < 80; i++) {
+        estrelas.push({ 
+            x: Math.random() * canvas.width, 
+            y: Math.random() * canvas.height, 
+            raio: Math.random() * 1.5, 
+            velocidade: Math.random() * 2 + 0.5 
+        });
     }
 
     // --- 3. CONTROLES ---
     window.addEventListener("keydown", (e) => teclas[e.code] = true);
     window.addEventListener("keyup", (e) => teclas[e.code] = false);
 
-    // --- 4. FUNÇÕES DE CRIAÇÃO ---
+    // --- 4. FUNÇÃO PARA DESENHAR O DINO (PIXEL ART) ---
+    function desenharDino(x, y, tamanho, corCorpo) {
+        const p = tamanho / 10; // Unidade de pixel proporcional
+        ctx.fillStyle = corCorpo;
+
+        // Cabeça
+        ctx.fillRect(x + p*4, y, p*5, p*3); 
+        ctx.fillRect(x + p*8, y + p, p*2, p*1); // Nariz
+        
+        // Olho
+        ctx.fillStyle = "white";
+        ctx.fillRect(x + p*5, y + p, p, p);
+        
+        // Corpo e Cauda
+        ctx.fillStyle = corCorpo;
+        ctx.fillRect(x + p*2, y + p*3, p*5, p*4);
+        ctx.fillRect(x, y + p*4, p*2, p*3); 
+        
+        // Patas
+        ctx.fillRect(x + p*3, y + p*7, p*2, p*2);
+        ctx.fillRect(x + p*6, y + p*7, p*2, p*2);
+    }
+
+    // --- 5. LÓGICA DE ATUALIZAÇÃO ---
     function criarInimigo() {
-        if (frames % 50 === 0) { // Cria inimigos um pouco mais rápido
-            let tipo = Math.random() > 0.8 ? "rapido" : "comum"; // 20% de chance de ser rápido
+        if (frames % 50 === 0) {
+            let tipo = Math.random() > 0.8 ? "rapido" : "comum";
             inimigos.push({
-                x: Math.random() * (canvas.width - 30),
-                y: -30,
-                largura: tipo === "rapido" ? 20 : 35,
-                altura: tipo === "rapido" ? 20 : 35,
-                velocidade: tipo === "rapido" ? 5 : 2.5,
-                cor: tipo === "rapido" ? "#B200FF" : "#FF0044" // Roxo para rápido, Vermelho para comum
+                x: Math.random() * (canvas.width - 35),
+                y: -40,
+                largura: tipo === "rapido" ? 25 : 35,
+                altura: tipo === "rapido" ? 25 : 35,
+                velocidade: tipo === "rapido" ? 6 : 3,
+                cor: tipo === "rapido" ? "#B200FF" : "#FF4444"
             });
         }
     }
 
-    function criarExplosao(x, y, cor) {
-        for (let i = 0; i < 15; i++) {
-            particulas.push({
-                x: x + 15, y: y + 15,
-                vx: (Math.random() - 0.5) * 6, // Velocidade horizontal aleatória
-                vy: (Math.random() - 0.5) * 6, // Velocidade vertical aleatória
-                tamanho: Math.random() * 4 + 2,
-                cor: cor,
-                vida: 30 // Partícula some após 30 frames
-            });
-        }
-    }
-
-    // --- 5. LÓGICA DO JOGO (ATUALIZAÇÃO) ---
     function atualizar() {
         if (!jogoAtivo) return;
 
-        // Fundo (Estrelas)
-        estrelas.forEach(estrela => {
-            estrela.y += estrela.velocidade;
-            if (estrela.y > canvas.height) estrela.y = 0;
+        // Estrelas
+        estrelas.forEach(est => {
+            est.y += est.velocidade;
+            if (est.y > canvas.height) est.y = 0;
         });
 
-        // Movimento da Nave
-        if (teclas["ArrowLeft"] && nave.x > 0) nave.x -= nave.velocidade;
-        if (teclas["ArrowRight"] && nave.x < canvas.width - nave.largura) nave.x += nave.velocidade;
+        // Movimento
+        if (teclas["ArrowLeft"] && dino.x > 0) dino.x -= dino.velocidade;
+        if (teclas["ArrowRight"] && dino.x < canvas.width - dino.largura) dino.x += dino.velocidade;
 
-        // Controle do PowerUp de Tiro Triplo
-        if (nave.timerPoder > 0) nave.timerPoder--;
+        if (dino.timerPoder > 0) dino.timerPoder--;
 
         // Atirar
         if (teclas["Space"] && frames % 12 === 0) {
-            if (nave.timerPoder > 0) {
-                // Tiro Triplo
-                tiros.push({ x: nave.x + 18, y: nave.y, vx: 0, vy: -12 });
-                tiros.push({ x: nave.x + 18, y: nave.y, vx: -3, vy: -10 }); // Diagonal esquerda
-                tiros.push({ x: nave.x + 18, y: nave.y, vx: 3, vy: -10 });  // Diagonal direita
-            } else {
-                // Tiro Normal
-                tiros.push({ x: nave.x + 18, y: nave.y, vx: 0, vy: -12 });
+            let corTiro = dino.timerPoder > 0 ? "#00FFFF" : "yellow";
+            tiros.push({ x: dino.x + dino.largura/2, y: dino.y, vx: 0, vy: -12, cor: corTiro });
+            if (dino.timerPoder > 0) {
+                tiros.push({ x: dino.x + dino.largura/2, y: dino.y, vx: -3, vy: -10, cor: corTiro });
+                tiros.push({ x: dino.x + dino.largura/2, y: dino.y, vx: 3, vy: -10, cor: corTiro });
             }
         }
 
         // Atualizar Tiros
-        tiros.forEach((tiro, index) => {
-            tiro.y += tiro.vy;
-            tiro.x += tiro.vx;
-            if (tiro.y < 0 || tiro.x < 0 || tiro.x > canvas.width) tiros.splice(index, 1);
+        tiros.forEach((t, i) => {
+            t.y += t.vy; t.x += t.vx;
+            if (t.y < 0 || t.x < 0 || t.x > canvas.width) tiros.splice(i, 1);
         });
 
-        // Atualizar Partículas (Explosões)
-        particulas.forEach((p, index) => {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vida--;
-            if (p.vida <= 0) particulas.splice(index, 1);
-        });
-
-        // Atualizar PowerUps
-        powerUps.forEach((pu, index) => {
-            pu.y += 2; // Powerup cai devagar
-            // Colisão com a nave
-            if (pu.y + 15 > nave.y && pu.y < nave.y + nave.altura &&
-                pu.x + 15 > nave.x && pu.x < nave.x + nave.largura) {
-                nave.timerPoder = 300; // 5 segundos de tiro triplo (60 frames * 5)
-                powerUps.splice(index, 1);
-            }
-            if (pu.y > canvas.height) powerUps.splice(index, 1);
-        });
-
-        // Atualizar Inimigos e Colisões
-        inimigos.forEach((inimigo, iIndex) => {
+        // Inimigos e Colisões
+        inimigos.forEach((inimigo, iIdx) => {
             inimigo.y += inimigo.velocidade;
 
-            // Inimigo bateu no chão (Perde vida)
-            if (inimigo.y > canvas.height) {
-                inimigos.splice(iIndex, 1);
-                nave.vidas--;
-                if (nave.vidas <= 0) jogoAtivo = false; // Fim de Jogo
+            // Colisão com o Dino
+            if (inimigo.x < dino.x + dino.largura && inimigo.x + inimigo.largura > dino.x &&
+                inimigo.y < dino.y + dino.altura && inimigo.y + inimigo.altura > dino.y) {
+                dino.vidas--;
+                inimigos.splice(iIdx, 1);
+                if (dino.vidas <= 0) jogoAtivo = false;
             }
 
-            // Colisão do Inimigo com a Nave
-            if (inimigo.x < nave.x + nave.largura && inimigo.x + inimigo.largura > nave.x &&
-                inimigo.y < nave.y + nave.altura && inimigo.y + inimigo.altura > nave.y) {
-                criarExplosao(nave.x, nave.y, "#00ADFF");
-                inimigos.splice(iIndex, 1);
-                nave.vidas--;
-                if (nave.vidas <= 0) jogoAtivo = false;
-            }
-
-            // Colisão Tiro com Inimigo
-            tiros.forEach((tiro, tIndex) => {
-                if (tiro.x < inimigo.x + inimigo.largura && tiro.x + 4 > inimigo.x &&
-                    tiro.y < inimigo.y + inimigo.altura && tiro.y + 10 > inimigo.y) {
-                    
-                    criarExplosao(inimigo.x, inimigo.y, inimigo.cor); // Chama o efeito visual
-                    pontuacao += (inimigo.velocidade === 5) ? 20 : 10; // Inimigo rápido dá mais pontos
-                    
-                    // Chance de dropar PowerUp (10% de chance)
-                    if (Math.random() < 0.1) {
-                        powerUps.push({ x: inimigo.x, y: inimigo.y });
-                    }
-
-                    inimigos.splice(iIndex, 1);
-                    tiros.splice(tIndex, 1);
+            // Colisão Tiro -> Inimigo
+            tiros.forEach((t, tIdx) => {
+                if (t.x < inimigo.x + inimigo.largura && t.x + 4 > inimigo.x &&
+                    t.y < inimigo.y + inimigo.altura && t.y + 10 > inimigo.y) {
+                    pontuacao += 10;
+                    if (Math.random() < 0.1) powerUps.push({ x: inimigo.x, y: inimigo.y });
+                    inimigos.splice(iIdx, 1);
+                    tiros.splice(tIdx, 1);
                 }
             });
+
+            if (inimigo.y > canvas.height) {
+                inimigos.splice(iIdx, 1);
+                dino.vidas--;
+                if (dino.vidas <= 0) jogoAtivo = false;
+            }
+        });
+
+        // PowerUps
+        powerUps.forEach((pu, pIdx) => {
+            pu.y += 2;
+            if (pu.y + 15 > dino.y && pu.y < dino.y + dino.altura &&
+                pu.x + 15 > dino.x && pu.x < dino.x + dino.largura) {
+                dino.timerPoder = 300;
+                powerUps.splice(pIdx, 1);
+            }
         });
     }
 
-    // --- 6. RENDERIZAÇÃO (DESENHO) ---
+    // --- 6. RENDERIZAÇÃO ---
     function desenhar() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpa tela
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Desenhar Estrelas
+        // Estrelas
         ctx.fillStyle = "white";
-        estrelas.forEach(e => {
-            ctx.beginPath();
-            ctx.arc(e.x, e.y, e.raio, 0, Math.PI * 2);
-            ctx.fill();
-        });
+        estrelas.forEach(e => { ctx.beginPath(); ctx.arc(e.x, e.y, e.raio, 0, Math.PI*2); ctx.fill(); });
 
-        // Se o jogo acabou, mostra a tela de Game Over
         if (!jogoAtivo) {
-            ctx.fillStyle = "red";
-            ctx.font = "40px Courier New";
+            ctx.fillStyle = "red"; ctx.font = "40px Courier New";
             ctx.fillText("GAME OVER", canvas.width/2 - 110, canvas.height/2);
-            ctx.fillStyle = "white";
             ctx.font = "20px Courier New";
-            ctx.fillText("Pressione F5 para reiniciar", canvas.width/2 - 160, canvas.height/2 + 40);
-            return; // Interrompe o desenho do resto
+            ctx.fillStyle = "white";
+            ctx.fillText("Recarregue para jogar", canvas.width/2 - 120, canvas.height/2 + 40);
+            return;
         }
 
-        // Desenhar PowerUps (Quadrado Azul Ciano)
+        // Itens
         ctx.fillStyle = "#00FFFF";
         powerUps.forEach(pu => ctx.fillRect(pu.x, pu.y, 15, 15));
 
-        // Desenhar Partículas
-        particulas.forEach(p => {
-            ctx.fillStyle = p.cor;
-            ctx.globalAlpha = p.vida / 30; // Vai ficando transparente
-            ctx.fillRect(p.x, p.y, p.tamanho, p.tamanho);
-        });
-        ctx.globalAlpha = 1.0; // Restaura opacidade
+        // Tiros
+        tiros.forEach(t => { ctx.fillStyle = t.cor; ctx.fillRect(t.x, t.y, 4, 10); });
 
-        // Desenhar Nave
-        ctx.fillStyle = nave.timerPoder > 0 ? "#00FFFF" : "#00ADFF"; // Nave brilha se tiver poder
-        ctx.fillRect(nave.x, nave.y, nave.largura, nave.altura);
+        // Inimigos
+        inimigos.forEach(ini => { ctx.fillStyle = ini.cor; ctx.fillRect(ini.x, ini.y, ini.largura, ini.altura); });
+
+        // --- DESENHAR O DINO ---
+        let corDino = dino.timerPoder > 0 ? "#00FFFF" : "#4CAF50"; 
+        if (dino.timerPoder > 0) { ctx.shadowBlur = 15; ctx.shadowColor = "#00FFFF"; }
         
-        // Detalhe da nave (Cockpit)
-        ctx.fillStyle = "white";
-        ctx.fillRect(nave.x + 15, nave.y + 5, 10, 15);
+        desenharDino(dino.x, dino.y, dino.largura, corDino);
+        
+        ctx.shadowBlur = 0;
 
-        // Desenhar Tiros
-        ctx.fillStyle = "yellow";
-        tiros.forEach(t => ctx.fillRect(t.x, t.y, 4, 10));
-
-        // Desenhar Inimigos
-        inimigos.forEach(inimigo => {
-            ctx.fillStyle = inimigo.cor;
-            ctx.fillRect(inimigo.x, inimigo.y, inimigo.largura, inimigo.altura);
-        });
-
-        // Placar e Vidas
-        ctx.fillStyle = "white";
-        ctx.font = "20px Courier New";
+        // HUD
+        ctx.fillStyle = "white"; ctx.font = "20px Courier New";
         ctx.fillText("Pontos: " + pontuacao, 20, 30);
-        ctx.fillStyle = "lime";
-        ctx.fillText("Vidas: " + "❤️".repeat(nave.vidas), 20, 60);
+        ctx.fillText("Vidas: " + "❤️".repeat(dino.vidas), 20, 60);
     }
 
-    // --- 7. LOOP PRINCIPAL ---
     function loop() {
         atualizar();
         desenhar();
